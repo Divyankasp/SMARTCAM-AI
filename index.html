@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SmartCam AI – Image Capture & Cloud Upload</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Fonts & Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at top, #0f172a, #020617);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #e5e7eb;
+    }
+
+    .app {
+      width: 420px;
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(16px);
+      border-radius: 22px;
+      padding: 22px;
+      box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .badge {
+      font-size: 11px;
+      background: linear-gradient(90deg,#22d3ee,#6366f1);
+      color: #020617;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+
+    h1 {
+      font-size: 20px;
+      margin: 0;
+    }
+
+    video, img {
+      width: 100%;
+      border-radius: 16px;
+      margin-top: 12px;
+      background: #020617;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    button {
+      border: none;
+      border-radius: 14px;
+      padding: 12px 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover { transform: translateY(-2px); opacity: 0.95; }
+
+    .btn-start { background: #2563eb; color: #fff; }
+    .btn-capture { background: #16a34a; color: #fff; }
+    .btn-upload { background: #f59e0b; color: #020617; }
+
+    .status {
+      margin-top: 10px;
+      font-size: 12px;
+      text-align: center;
+      min-height: 18px;
+    }
+
+    .loader {
+      width: 22px;
+      height: 22px;
+      border: 3px solid rgba(255,255,255,0.2);
+      border-top: 3px solid #22d3ee;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 8px auto;
+      display: none;
+    }
+
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    .footer {
+      margin-top: 14px;
+      font-size: 11px;
+      text-align: center;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <span class="badge"> PROJECT</span>
+    <h1>SmartCam AI</h1>
+  </div>
+
+  <video id="video" autoplay></video>
+  <canvas id="canvas" width="400" height="300" style="display:none"></canvas>
+  <img id="result" />
+
+  <div class="controls">
+    <button class="btn-start" onclick="startCamera()"><i data-lucide="camera"></i>Start</button>
+    <button class="btn-capture" onclick="captureImage()"><i data-lucide="aperture"></i>Capture</button>
+    <button class="btn-upload" onclick="uploadImage()"><i data-lucide="cloud-upload"></i>Upload</button>
+  </div>
+
+  <div class="loader" id="loader"></div>
+  <div class="status" id="status">Ready</div>
+
+  <div class="footer">Cloudinary CDN • Secure • Fast Retrieval</div>
+</div>
+
+<script>
+lucide.createIcons();
+
+let imageBlob = null;
+
+function setStatus(msg) {
+  document.getElementById('status').innerText = msg;
+}
+
+function startCamera() {
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => {
+      video.srcObject = stream;
+      setStatus('Camera started');
+    })
+    .catch(() => setStatus('Camera access denied'));
+}
+
+function captureImage() {
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  canvas.toBlob(blob => {
+    imageBlob = blob;
+    result.src = URL.createObjectURL(blob);
+    setStatus('Image captured');
+  }, 'image/jpeg', 0.9);
+}
+
+function uploadImage() {
+  if (!imageBlob) {
+    setStatus('Capture image first');
+    return;
+  }
+
+  loader.style.display = 'block';
+  setStatus('Uploading to Cloudinary...');
+
+  const formData = new FormData();
+  formData.append('file', imageBlob);
+  formData.append('upload_preset', 'WEB DEVELOPMENT');
+
+  fetch('https://api.cloudinary.com/v1_1/dhskimyzv/image/upload', {
+    method: 'POST',
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+    loader.style.display = 'none';
+    if (data.error) {
+      setStatus(data.error.message);
+      return;
+    }
+    result.src = data.secure_url;
+    setStatus('Upload successful • Served via CDN');
+  })
+  .catch(() => {
+    loader.style.display = 'none';
+    setStatus('Upload failed');
+  });
+}
+</script>
+
+</body>
+</html>
